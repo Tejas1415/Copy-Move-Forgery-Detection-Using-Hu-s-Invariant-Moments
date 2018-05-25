@@ -1,16 +1,24 @@
+% Coded by Tejas K
+% March 2018
+
+
+
+% Clear the MATLAB environment for further execution.
 clc
 clear all
 close all
 
-i1=imread('tamp6.jpg'); 
+i1=imread('tamp6.jpg');       % Read the copymove forged image and pre-process it.>> grey scale >> resize >> make it double
 i2=rgb2gray(i1);
 figure,imshow(i2), title('Before Resize');
-i2=imresize(i2, [64 64]);
+i2=imresize(i2, [64 64]);     % I made it 64 x 64 for faster execution, You better make it 128 x 128 or 256 x 256 for better visual results.
 figure, imshow(i2); title('i2');
 figure, imshow(i2); title('i21');
 [row, col] = size(i2);
 i2=im2double(i2);
 
+
+%% Dividig the input image into 8 x 8 overlapping blocks/cells.
 count5=0;
 V=zeros(64,1);
 counti=0;countj=0;S=zeros(1,2);
@@ -22,12 +30,16 @@ for i=1:row-7
     counti = counti + 1;
    countj = 0;
     for j=1:col-7
-        
         countj = countj + 1;
         Blocks2{counti,countj} = i2(i:i+7,j:j+7);
        count5=count5+1;
        [height, width] = size(image);
-image=Blocks2{counti,countj};
+image=Blocks2{counti,countj};          % Blocks2{32,43} would return us a 8 x 8 matrix starting from element in cooridinates 32,43
+
+
+
+%% Now find Hu's Invariant moments for each block
+
 % define a co-ordinate system for image 
 xgrid = repmat((-floor(height/2):1:ceil(height/2)-1)',1,width);
 ygrid = repmat(-floor(width/2):1:ceil(width/2)-1,height,1);
@@ -62,6 +74,10 @@ hu_moments_vector = [I_one, I_two, I_three,I_four];
 hu_moments_vector_norm= -sign(hu_moments_vector).*(log10(abs(hu_moments_vector)));
 hu_moments_vector_norm = abs(hu_moments_vector_norm)*100;
 hu_moments_vector_norm= round(hu_moments_vector_norm);
+
+
+%% Now place all the produced Hu's invariant moments in a new matrix where moments for each block are placed as a row in the matrix.
+
 hu = vertcat(hu,hu_moments_vector_norm);
 
 S=[counti countj];
@@ -73,20 +89,22 @@ L(1,:)=[];
 add2(1,:)=[];
 L=[L add2];
 
+% Sort the rows lexicographically 
 L1=sortrows(L);
 
+% The locations for the first element of the matrix
 S2= [L1(:,end-1) L1(:,end)];
 
 L1(:,end-1)=[];
 L1(:,end)=[];
-shiftvector=zeros(1,2); copy=zeros(1,6);
+shiftvector=zeros(1,2); copy=zeros(1,6);   % euclidean distance calculation
 count55=0;
 for i=2:3249
     K2=0; J2=0;
     if(isequal(L1(i,:),L1(i-1,:))==1)
 count55=count55+1;
  K2=S2(i,1); J2=S2(i,2);
-        K3=S2(i-1,1); J3= S2(i-1,2);
+        K3=S2(i-1,1); J3= S2(i-1,2); % checking if adjecent rows have equal feature values.
         s1= K2-K3; s2=J2-J3;
         s=[s1 s2];
         shiftvector = vertcat(shiftvector,s);
@@ -98,7 +116,7 @@ copy(1,:)=[];
     
 shiftvector(1,:)=[];
  shiftvector= abs(shiftvector);
-matrix = unique(shiftvector, 'rows', 'stable');
+matrix = unique(shiftvector, 'rows', 'stable');   % checking the number of unique euclidean distances
 
 [row2, col2]= size(shiftvector);
 [row3, col3]= size(matrix);
@@ -113,10 +131,12 @@ for i=1:row3
         cnt=0;
 end
 
-threshold = repetition > 2000 & repetition < 3000;
+threshold = repetition > 2000 & repetition < 3000;   % thereshold the number of times a euclidean distance has been repeated
 repetition
 %tamp9.ico-(105,400)-*100
 
+
+%% for the values under the threshold limit, mark the blocks as copy move forged. 
 V2 = zeros(64,64);
 c6=0;c7=0;
 for i=1:row3
@@ -138,3 +158,8 @@ end
 figure,imshow(V2); title('copy moved part');
 %V2=imresize(V2, [128 128]);
 figure, imshow(~V2); title ('inverted image');
+
+
+% Its hard to explain why I have done each step, Kindly go through the paper, it is well explained there.
+% Here all 8 features produced are used. These features can be processed through logtransforms and then added to get one featureperblock, 
+% Once one feature is produced, the same process can be continued.
